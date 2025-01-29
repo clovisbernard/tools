@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alpha-auth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alpha-auth
+  template:
+    metadata:
+      labels:
+        app: alpha-auth
+    spec:
+      initContainers:
+        - name: init-db
+          image: busybox:1.31
+          command: ['sh', '-c', 'echo -e "Checking for the availability of Weather Server deployment"; while ! nc -z weather 5000; do sleep 1; printf "-"; done; echo -e "  >> Weather Server has started";']
+      containers:
+        - name: alpha-auth
+          image: proudevops/auth:latest 
+          imagePullPolicy: Always  
+          # command: ["/bin/sh", "-c"]
+          # args:
+          #   - |
+          #     export DB_HOST=$(cat /mnt/secrets-store/DB_HOST) &&
+          #     export DB_PASSWORD=$(cat /mnt/secrets-store/DB_PASSWORD)
+          #     exec /app
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: app-configmap  
+                  key: DB_HOST
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                    name: app-secrets
+                    key: DB_PASSWORD
+          volumeMounts:
+            - name: secrets-store-volume
+              mountPath: /mnt/secrets-store
+              readOnly: true
+      volumes:
+        - name: db-data
+          persistentVolumeClaim:
+            claimName: alpha-db-pvc
+        - name: secrets-store-volume
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: "db-aws-secrets"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth
+spec:
+  selector:
+    app: alpha-auth
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP
