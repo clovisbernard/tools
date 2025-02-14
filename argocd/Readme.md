@@ -9,4 +9,8 @@ argocd login localhost:8080 --username admin --password knJtU
 
 
 
-sdfghvjbkl;jk/j.hgcfxdchvjk.hl/j;Lj/h.gcf
+argocd app create app \
+--repo https://github.com/clovisbernard/tools.git \
+--path k8s/appli/001-NodePort \
+--dest-namespace app \
+--dest-server https://kubernetes.default.svc
